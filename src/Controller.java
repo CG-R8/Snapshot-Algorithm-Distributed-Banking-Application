@@ -2,9 +2,13 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class Controller {
-	public static void main(String[] args) throws UnknownHostException, IOException {
+	private static List<Bank.InitBranch.Branch> branchesList;
+
+	public static void main(String[] args) throws UnknownHostException, IOException, InterruptedException {
 		int count = args.length;
 		if (count != 2) {
 			System.err.println("Wrong number inputs....Format <initial Amount> <Filename>");
@@ -23,9 +27,7 @@ public class Controller {
 			Bank.InitBranch.Builder ib = Bank.InitBranch.newBuilder();
 			while ((line = fp.readLine()) != null && line.trim().length() > 0) {
 				isFileEmpty = false;
-				System.out.println(line);
 				String[] sarr = line.split(" ");
-				System.out.println(sarr.length);
 				String bBranchName = sarr[0];
 				String bIpAddress = sarr[1];
 				int bPort = Integer.parseInt(sarr[2]);
@@ -38,7 +40,7 @@ public class Controller {
 			ib.setBalance(Integer.parseInt(args[0]) / ib.getAllBranchesCount());
 			Bank.InitBranch bm = ib.build();
 			byte[] byteArray = Bank.BranchMessage.newBuilder().setInitBranch(bm).build().toByteArray();
-			List<Bank.InitBranch.Branch> branchesList = bm.getAllBranchesList();
+			branchesList = ib.getAllBranchesList();
 			// System.out.println("branches Size "+bm.getAllBranchesList().size());
 			for (Bank.InitBranch.Branch branch : ib.getAllBranchesList()) {
 				System.out.println("IP: " + branch.getIp() + " Port:" + branch.getPort());
@@ -54,5 +56,25 @@ public class Controller {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+		TimeUnit.SECONDS.sleep(10000);
+		//TODO make this automatic afterward
+		int snapshotID =1;
+//		snapshotID = Integer.parseInt(args[2]);
+		
+		 Bank.InitBranch.Branch randomBranchInit = getRandomBranch();
+		 Bank.InitSnapshot bInitSnapshot = Bank.InitSnapshot.newBuilder().setSnapshotId(snapshotID).build();
+			byte[] byteArrayInitSnapshot = Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
+			System.out.println("Initiating snapshot ID :" + snapshotID + " transfering to IP: "
+					+ randomBranchInit.getIp() + " Port:" + randomBranchInit.getPort());
+			Socket socket = new Socket(randomBranchInit.getIp(), randomBranchInit.getPort());
+			socket.getOutputStream().write(byteArrayInitSnapshot, 0, byteArrayInitSnapshot.length);
+			socket.getInputStream().close();
+			socket.close();
+	}
+
+	public static Bank.InitBranch.Branch getRandomBranch() {
+		Random rand = new Random();
+		return branchesList.get(rand.nextInt((branchesList.size() - 1) + 1) + 0);
 	}
 }
