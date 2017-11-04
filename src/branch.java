@@ -1,14 +1,23 @@
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.google.protobuf.Descriptors.FieldDescriptor;
 
 public class branch {
 	private static ServerSocket serverSocket = null;
@@ -19,8 +28,30 @@ public class branch {
 	public boolean canTransfer = true;
 	private List<Integer> incomingChannelState = new ArrayList<Integer>();
 	private ConcurrentHashMap<Integer, LocalStateSnapshot> snapshots = new ConcurrentHashMap<Integer, LocalStateSnapshot>();
+	public int current_port;
+	public String current_ipAddress;
+	public String current_branchName;
 
 	public branch(String branchName, String ipAddress, int port) {
+		this.current_branchName = branchName;
+		this.current_ipAddress = ipAddress;
+		this.current_port = port;
+	}
+
+	private void initBranchMethod(Bank.BranchMessage bm) {
+		System.out.println("InitBranch Message Received....");
+		syncedBalanceUpdate(bm.getInitBranch().getBalance());
+		branchesList = bm.getInitBranch().getAllBranchesList();
+		for (Bank.InitBranch.Branch branch : branchesList) {
+			System.out.println("Branch :" + branch.getName() + " IP :" + branch.getIp() + " Port :" + branch.getPort());
+		}
+		System.out.println("Current Balance is : " + bm.getInitBranch().getBalance());
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				transfermoney();
+			}
+		}).start();
 	}
 
 	public void transfermoney() {
@@ -41,15 +72,19 @@ public class branch {
 					if (transferingMoney != -1) {
 						syncedBalanceUpdate(-transferingMoney);
 						Bank.InitBranch.Branch randomBranch = getRandomBranch();
-						
 						Bank.Transfer bt = Bank.Transfer.newBuilder().setMoney(transferingMoney).build();
 						Bank.BranchMessage.newBuilder().setTransfer(bt).build();
-						byte[] byteArrayBalanceTransfer = Bank.BranchMessage.newBuilder().setTransfer(bt).build().toByteArray();
+						// byte[] byteArrayBalanceTransfer =
+						// Bank.BranchMessage.newBuilder().setTransfer(bt).build()
+						// .toByteArray();
 						System.out.println("Balance :" + transferingMoney + " transfering to IP: "
 								+ randomBranch.getIp() + " Port:" + randomBranch.getPort());
 						Socket socket = new Socket(randomBranch.getIp(), randomBranch.getPort());
-						socket.getOutputStream().write(byteArrayBalanceTransfer, 0, byteArrayBalanceTransfer.length);
-						socket.getInputStream().close();
+						Bank.BranchMessage.newBuilder().setTransfer(bt).build()
+								.writeDelimitedTo(socket.getOutputStream());
+						// socket.getOutputStream().write(byteArrayBalanceTransfer, 0,
+						// byteArrayBalanceTransfer.length);/s
+						socket.getOutputStream().close();
 						socket.close();
 						if (!canTransfer) {
 							timer.cancel();
@@ -77,7 +112,31 @@ public class branch {
 		balance = balance + money;
 	}
 
-	public static void main(String[] args) throws IOException {
+	private void initSnapshot(int snapshot_id) throws UnknownHostException, IOException, InterruptedException {
+		incomingChannelState.clear();
+		LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
+		localSnapshot.setSnapshot_id(snapshot_id);
+		localSnapshot.setBalance(balance);
+		localSnapshot.setMessages(this.incomingChannelState);
+		snapshots.put(snapshot_id, localSnapshot);
+
+		for (Bank.InitBranch.Branch branch : branchesList) {
+			// TODO possible to have different ip same port
+			if (branch.getPort() != current_port) {
+				Thread.sleep(4000);
+				Bank.Marker bMarker = Bank.Marker.newBuilder().setSnapshotId(snapshot_id).build();
+				System.out.print("--Sending marker msg SnapshotId :" + snapshot_id);
+				System.out.println(" IP: " + branch.getIp() + " Port:" + branch.getPort());
+				Socket socket = new Socket(branch.getIp(), branch.getPort());
+				Bank.BranchMessage.newBuilder().setMarker(bMarker).build().writeDelimitedTo(socket.getOutputStream());
+				socket.getOutputStream().write(current_branchName.getBytes());
+				socket.getOutputStream().close();
+				socket.close();
+			}
+		}
+	}
+
+	public static void main(String[] args) throws IOException, InterruptedException {
 		if (args.length < 2) {
 			System.err.println("Wrong input....<branchname><Port>");
 			System.exit(0);
@@ -88,32 +147,31 @@ public class branch {
 			int port = Integer.valueOf(args[1]);
 			branch br = new branch(branchName, ipAddress, port);
 			serverSocket = new ServerSocket(port);
-			System.out.println("Branch Server started on Port : "+port);
+			System.out.println("Branch Server started on Port : " + port);
 			while (true) {
 				clientSocket = serverSocket.accept();
-				
-				//System.out.println("New client connection done : " + server.getRemoteSocketAddress());
-				String connected_client = clientSocket.getRemoteSocketAddress().toString();
-				String client_Address = clientSocket.getInetAddress().toString();
-				int client_Port = clientSocket.getPort();
-				System.out.println("[[" + client_Address + "][" + client_Port + "]]");
-
-				
-				
-				
-				System.out.println("Socket accepted....Port :" + serverSocket.getInetAddress()+" Port "+serverSocket.getLocalPort());
-				Bank.BranchMessage bm = Bank.BranchMessage.parseFrom(clientSocket.getInputStream());
+				Bank.BranchMessage bm = Bank.BranchMessage.parseDelimitedFrom(clientSocket.getInputStream());
 				if (bm.hasInitBranch()) {
 					br.initBranchMethod(bm);
 				}
 				if (bm.hasTransfer()) {
-					System.out.println("Transfer Message Received....Money :"+bm.getTransfer().getMoney());
+					System.out.println("Transfer Message Received....Money :" + bm.getTransfer().getMoney());
 					br.syncedBalanceUpdate(bm.getTransfer().getMoney());
 					System.out.println("Current updated Balance : " + br.balance);
 				}
-				if(bm.hasInitSnapshot()) {
+				if (bm.hasInitSnapshot()) {
 					System.out.println("Yay...InitSnapshot is here...");
 					br.initSnapshot(bm.getInitSnapshot().getSnapshotId());
+				}
+				if (bm.hasMarker()) {
+					System.out.println("*Marker msg recived.....");
+					BufferedReader bufferReaderMarker = new BufferedReader(
+							new InputStreamReader(clientSocket.getInputStream()));
+					String markerSenderBranchName = bufferReaderMarker.readLine();
+					System.out.println("**Marker received from branch : " + markerSenderBranchName + " SnapshotID : "
+							+ bm.getMarker().getSnapshotId());
+					
+					br.processReceivedMarker( bm.getMarker().getSnapshotId(),markerSenderBranchName);
 				}
 				clientSocket.close();
 			}
@@ -122,28 +180,8 @@ public class branch {
 		}
 	}
 
-	private void initSnapshot(int snapshot_id) {
-			incomingChannelState.clear();
-			LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
-			localSnapshot.setSnapshot_id(snapshot_id);
-			localSnapshot.setBalance(balance);
-			localSnapshot.setMessages(this.incomingChannelState);
-			snapshots.put(snapshot_id, localSnapshot);
-	}
+	public void processReceivedMarker(int snapshotId, String markerSenderBranchName) throws InterruptedException {
 
-	private void initBranchMethod(Bank.BranchMessage bm) {
-		System.out.println("InitBranch Message Received....");
-		syncedBalanceUpdate(bm.getInitBranch().getBalance());
-		branchesList = bm.getInitBranch().getAllBranchesList();
-		for (Bank.InitBranch.Branch branch : branchesList) {
-			System.out.println("Branch :" + branch.getName() + " IP :" + branch.getIp() + " Port :" + branch.getPort());
-		}
-		System.out.println("Current Balance is : " + bm.getInitBranch().getBalance());
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				transfermoney();
-			}
-		}).start();
+		Thread.sleep(2000);
 	}
 }

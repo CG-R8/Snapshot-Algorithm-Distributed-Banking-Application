@@ -39,13 +39,17 @@ public class Controller {
 			// ib.addAllAllBranches(branchesBuildList);
 			ib.setBalance(Integer.parseInt(args[0]) / ib.getAllBranchesCount());
 			Bank.InitBranch bm = ib.build();
-			byte[] byteArray = Bank.BranchMessage.newBuilder().setInitBranch(bm).build().toByteArray();
+//			byte[] byteArray = Bank.BranchMessage.newBuilder().setInitBranch(bm).build().toByteArray();
+			Bank.BranchMessage branchMessage = Bank.BranchMessage.newBuilder().setInitBranch(bm).build();
+			
 			branchesList = ib.getAllBranchesList();
 			// System.out.println("branches Size "+bm.getAllBranchesList().size());
 			for (Bank.InitBranch.Branch branch : ib.getAllBranchesList()) {
 				System.out.println("IP: " + branch.getIp() + " Port:" + branch.getPort());
 				Socket socket = new Socket(branch.getIp(), branch.getPort());
-				socket.getOutputStream().write(byteArray, 0, byteArray.length);
+//				socket.getOutputStream().write(byteArray, 0, byteArray.length);
+				branchMessage.writeDelimitedTo(socket.getOutputStream());
+
 				socket.close();
 			}
 			if (isFileEmpty) {
@@ -56,19 +60,23 @@ public class Controller {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
-		TimeUnit.SECONDS.sleep(10000);
+		Thread.sleep(4000);
+//		TimeUnit.SECONDS.sleep(10000);
 		//TODO make this automatic afterward
 		int snapshotID =1;
 //		snapshotID = Integer.parseInt(args[2]);
-		
+		System.out.println("Starting snapshot initiation");
 		 Bank.InitBranch.Branch randomBranchInit = getRandomBranch();
 		 Bank.InitSnapshot bInitSnapshot = Bank.InitSnapshot.newBuilder().setSnapshotId(snapshotID).build();
-			byte[] byteArrayInitSnapshot = Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
+//			byte[] byteArrayInitSnapshot = Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
 			System.out.println("Initiating snapshot ID :" + snapshotID + " transfering to IP: "
 					+ randomBranchInit.getIp() + " Port:" + randomBranchInit.getPort());
 			Socket socket = new Socket(randomBranchInit.getIp(), randomBranchInit.getPort());
-			socket.getOutputStream().write(byteArrayInitSnapshot, 0, byteArrayInitSnapshot.length);
+			
+			
+			Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().writeDelimitedTo(socket.getOutputStream());
+			
+//			socket.getOutputStream().write(byteArrayInitSnapshot, 0, byteArrayInitSnapshot.length);
 			socket.getInputStream().close();
 			socket.close();
 	}
