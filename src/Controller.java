@@ -74,6 +74,28 @@ public class Controller {
 		// byteArrayInitSnapshot.length);
 		socket.getInputStream().close();
 		socket.close();
+		
+		
+		
+		
+		Thread.sleep(20000);
+		
+		
+		System.out.println("Starting 2nd snapshot initiation");
+		snapshotID=2;
+		randomBranchInit = getRandomBranch();
+		bInitSnapshot = Bank.InitSnapshot.newBuilder().setSnapshotId(snapshotID).build();
+		// byte[] byteArrayInitSnapshot =
+		// Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
+		System.out.println("Initiating snapshot ID :" + snapshotID + " transfering to IP: " + randomBranchInit.getIp()
+				+ " Port:" + randomBranchInit.getPort());
+		socket = new Socket(randomBranchInit.getIp(), randomBranchInit.getPort());
+		Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build()
+				.writeDelimitedTo(socket.getOutputStream());
+		// socket.getOutputStream().write(byteArrayInitSnapshot, 0,
+		// byteArrayInitSnapshot.length);
+		socket.getInputStream().close();
+		socket.close();
 		// send the retrival msg
 		/*
 		 * RetrieveSnapshot the controller sends retrieveSnapshot messages to all

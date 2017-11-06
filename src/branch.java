@@ -148,6 +148,15 @@ public class branch {
 	}
 
 	private void initSnapshot(int snapshot_id) throws UnknownHostException, IOException, InterruptedException {
+		
+		for (Bank.InitBranch.Branch branch : branchesList) {
+			if (!branch.getName().equals(current_branchName))
+			{
+				this.incommingChannel.get(branch.getName()).setIncommingChannelData_snapshot_id(snapshot_id);
+				System.out.println("::"+branch.getName());
+				}
+			}
+		
 		marker_transfer_lock.lock();
 		incomingChannelState.clear();
 		LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
@@ -162,6 +171,7 @@ public class branch {
 			// start the incoming traffic recording On mm inititator
 			if ((!branch.getName().equals(current_branchName))) {
 				this.incommingChannel.get(branch.getName()).setRecordingStarted(true);
+				this.incommingChannel.get(branch.getName()).setIncommingChannelData_snapshot_id(snapshot_id);
 				System.out.println("@Recording started C " + branch.getName() + "--->" + current_branchName);
 			}
 		}
@@ -249,7 +259,7 @@ public class branch {
 		try {
 			if (!incommingChannel.isEmpty())
 				// System.out.println("moneySender " + moneySender);
-				if (incommingChannel.get(moneySender).isRecordingStarted() ) {
+				if (incommingChannel.get(moneySender).isRecordingStarted()) {
 					int oldAmount = incommingChannel.get(moneySender).getIncommingChannelData_Amount();
 					System.out.println(" Incomming Channels " + moneySender + ":" + current_branchName + " Amount old "
 							+ oldAmount + " now :" + money + " total :" + (oldAmount + money));
@@ -280,23 +290,26 @@ public class branch {
 			 * sends out Marker messages to all of its outgoing channels (except itself).
 			 */
 			LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
-			incommingChannelData incommingChannel = new incommingChannelData();
+			incommingChannelData incommingChannel_obj = new incommingChannelData();
 			localSnapshot.setSnapshot_id(snapshotId);
 			localSnapshot.setBalance(this.balance);
 			localSnapshot.setMessages(this.incomingChannelState);
+			localSnapshot.incrementReceivedMarker_snapshot();
 			//
-			incommingChannel.setIncommingChannelData_snapshot_id(snapshotId);
-			incommingChannel.setIncomingChannelFrom(markerSenderBranchName);
-			incommingChannel.setIncomingChannelTO(current_branchName);
+			incommingChannel_obj.setIncommingChannelData_snapshot_id(snapshotId);
+			incommingChannel_obj.setIncomingChannelFrom(markerSenderBranchName);
+			incommingChannel_obj.setIncomingChannelTO(current_branchName);
 			// * records the state of the incoming channel from the sender to itself as
 			// empty,
 			System.out.println("Stopping recording of " + markerSenderBranchName + " --->" + current_branchName);
-			incommingChannel.setRecordingStarted(false);
+			incommingChannel_obj.setRecordingStarted(false);
+			incommingChannel_obj.setIncommingChannelData_snapshot_id(snapshotId);
 			//
-			// * immediately starts recording on other incoming channels
+			// * immediately starts recording on other incoming channels **for that snapshot id
 			for (Bank.InitBranch.Branch branch : branchesList) {
 				if ((branch.getPort() != current_port) && (!branch.getName().equals(markerSenderBranchName))) {
 					this.incommingChannel.get(branch.getName()).setRecordingStarted(true);
+					
 					System.out.println("@Recording started C " + branch.getName() + "--->" + current_branchName);
 				}
 			}
@@ -305,7 +318,7 @@ public class branch {
 			//
 			// TODO needed lock here with respect to receiveMoney method
 			this.snapshots.put(snapshotId, localSnapshot);
-			this.incommingChannel.put(markerSenderBranchName, incommingChannel);
+			this.incommingChannel.put(markerSenderBranchName, incommingChannel_obj);
 			for (Bank.InitBranch.Branch branch : branchesList) {
 				// TODO possible to have different ip same port
 				if (branch.getPort() != current_port) {
@@ -316,12 +329,14 @@ public class branch {
 					Bank.BranchMessage.newBuilder().setMarker(bMarker).build()
 							.writeDelimitedTo(socket.getOutputStream());
 					socket.getOutputStream().write(current_branchName.getBytes());
-					// TODO setMarkersSent(this.numberOfMarkersSent++);
+					// TODO setMarkersSent(this.numberOfMarkersSent+1);
 					incrementMarkersSent();
 					socket.getOutputStream().close();
 					socket.close();
 				}
 			}
+		}else{
+			
 		}
 		// System.out.println("Markers Received:"+numberOfMarkersReceived);
 		// System.out.println("Markers Sent:"+numberOfMarkersSent);
@@ -334,16 +349,25 @@ public class branch {
 		{
 			// this is the mm initiators 2nd marker.
 			this.incommingChannel.get(markerSenderBranchName).setRecordingStarted(false);
+			this.incommingChannel.get(markerSenderBranchName).setIncommingChannelData_snapshot_id(snapshotId);;
+			this.snapshots.get(snapshotId).incrementReceivedMarker_snapshot();
+
 			System.out.println("Stopping recording of " + markerSenderBranchName + " --->" + current_branchName);
 		}
 		if (numberOfMarkersReceived == branchesList.size() - 1) {
 			System.out.println("========================================================");
 			System.out.println("================Snapshot Done here======================");
-			System.out.println("Balance :" + snapshots.get(snapshotId).getBalance());
+			System.out.println("Balance :" + snapshots.get(snapshotId).getBalance() +"Markers count "+snapshots.get(snapshotId).markersrecived);
 			System.out.println("Incoming channel");
 			incommingChannel.forEach((key, value) -> System.out
-					.println(key + ":" + value.getIncommingChannelData_Amount() + ":" + value.isRecordingStarted));
-			System.out.println("This balance" + balance);
+					.println(key + ":" + value.getIncommingChannelData_Amount() + ":" + value.isRecordingStarted+" : "+value.getIncommingChannelData_snapshot_id()));
+			
+			setMarkersReceived(0);
+			setMarkersSent(0);
+			//TODO send the all the branch object
+			for (Bank.InitBranch.Branch branch : branchesList) {
+			initIncomingChannels(current_branchName, branch);
+			}
 			System.out.println("========================================================");
 		}
 		marker_transfer_lock.unlock();

@@ -3,9 +3,13 @@ import java.util.List;
 public class LocalStateSnapshot {
 	int snapshot_id;
 	int balance;
+	int markersrecived=0;
 
 	List<Integer> messages;
 
+	public void incrementReceivedMarker_snapshot() {
+		this.markersrecived++;
+	}
 	public int getSnapshot_id() {
 		return snapshot_id;
 	}

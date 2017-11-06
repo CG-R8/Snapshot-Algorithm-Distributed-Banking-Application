@@ -73,4 +73,10 @@
 			<classpath refid="DS_GoogleProtoc_snapshot.classpath"/>
 		</java>
 	</target>
+	<target name="branch_3">
+			<java classname="branch" failonerror="true" fork="yes">
+				<arg line="branch3 9093"/>
+				<classpath refid="DS_GoogleProtoc_snapshot.classpath"/>
+			</java>
+		</target>
 </project>
