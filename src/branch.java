@@ -12,6 +12,7 @@ import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Currency;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -71,8 +72,8 @@ public class branch {
 				
 				marker_transfer_lock.lock();
 				{
-					Instant now = Instant.now();
-					System.out.print(now+" ");
+//					Instant now = Instant.now();
+//					System.out.print(now+" ");
 				int transferingMoney = 0;
 				Random rand = new Random();
 				// TODO change this percentage
@@ -189,10 +190,9 @@ public class branch {
 
 	private void initIncomingChannels(String current_branchName2, Bank.InitBranch.Branch branch)
 			throws InterruptedException {
-		// System.out.println("initIncommingChannel from" + branch.getName() + " To " +
-		// current_branchName2);
+		 System.out.println("initIncommingChannel from" + branch.getName() + " To " +
+		 current_branchName2);
 		Thread.sleep(2000);
-		LocalStateSnapshot initlocalstate = new LocalStateSnapshot();
 		incommingChannelData incommingChannel = new incommingChannelData();
 				//
 		incommingChannel.setIncomingChannelFrom(branch.getName());
@@ -201,8 +201,6 @@ public class branch {
 		incommingChannel.setIncommingChannelData_Amount(0);
 		incommingChannel.setIncommingChannelData_snapshot_id(0);
 		//
-		initlocalstate.setSnapshot_id(0);
-		initlocalstate.setBalance(0);
 		this.incomingChannel.put(branch.getName(), incommingChannel);
 	}
 
@@ -222,8 +220,6 @@ public class branch {
 			System.out.println("Branch Server started on Port : " + port);
 			while (true) {
 				clientSocket = serverSocket.accept();
-				Instant now = Instant.now();
-				System.out.println(now);
 				Bank.BranchMessage bm = Bank.BranchMessage.parseDelimitedFrom(clientSocket.getInputStream());
 				if (bm.hasInitBranch()) {
 					br.initBranchMethod(bm);
@@ -351,7 +347,9 @@ public class branch {
 			System.out.println("========================================================");
 			System.out.println("================Snapshot Done here======================");
 			System.out.println("Balance :" + snapshots.get(1).getBalance());
+
 			System.out.println("Incoming channel");
+		
 			incomingChannel.forEach((key, value) -> System.out.println(key + ":" + value.getIncommingChannelData_Amount()));
 			System.out.println("This balance" + balance);
 			System.out.println("========================================================");
