@@ -3,34 +3,8 @@ import java.util.List;
 public class LocalStateSnapshot {
 	int snapshot_id;
 	int balance;
-	String incomingChannelFrom;
-	String incomingChannelTO;
-	boolean isRecordingStarted;
+
 	List<Integer> messages;
-
-	public String getIncomingChannelTO() {
-		return incomingChannelTO;
-	}
-
-	public void setIncomingChannelTO(String incomingChannelTO) {
-		this.incomingChannelTO = incomingChannelTO;
-	}
-
-	public String getIncomingChannelFrom() {
-		return incomingChannelFrom;
-	}
-
-	public void setIncomingChannelFrom(String incomingChannelFrom) {
-		this.incomingChannelFrom = incomingChannelFrom;
-	}
-
-	public boolean isRecordingStarted() {
-		return isRecordingStarted;
-	}
-
-	public void setRecordingStarted(boolean isRecordingStarted) {
-		this.isRecordingStarted = isRecordingStarted;
-	}
 
 	public int getSnapshot_id() {
 		return snapshot_id;
