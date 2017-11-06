@@ -36,20 +36,15 @@ public class Controller {
 				// branchesBuildList.add(ibb.build());
 				ib.addAllBranches(ibb.build());
 			}
-			// ib.addAllAllBranches(branchesBuildList);
 			ib.setBalance(Integer.parseInt(args[0]) / ib.getAllBranchesCount());
 			Bank.InitBranch bm = ib.build();
-//			byte[] byteArray = Bank.BranchMessage.newBuilder().setInitBranch(bm).build().toByteArray();
 			Bank.BranchMessage branchMessage = Bank.BranchMessage.newBuilder().setInitBranch(bm).build();
-			
 			branchesList = ib.getAllBranchesList();
-			// System.out.println("branches Size "+bm.getAllBranchesList().size());
-			for (Bank.InitBranch.Branch branch : ib.getAllBranchesList()) {
+			for (Bank.InitBranch.Branch branch : branchesList) {
 				System.out.println("IP: " + branch.getIp() + " Port:" + branch.getPort());
 				Socket socket = new Socket(branch.getIp(), branch.getPort());
-//				socket.getOutputStream().write(byteArray, 0, byteArray.length);
+				// socket.getOutputStream().write(byteArray, 0, byteArray.length);
 				branchMessage.writeDelimitedTo(socket.getOutputStream());
-
 				socket.close();
 			}
 			if (isFileEmpty) {
@@ -61,24 +56,40 @@ public class Controller {
 			e.printStackTrace();
 		}
 		Thread.sleep(4000);
-//		TimeUnit.SECONDS.sleep(10000);
-		//TODO make this automatic afterward
-		int snapshotID =1;
-//		snapshotID = Integer.parseInt(args[2]);
+		// TimeUnit.SECONDS.sleep(10000);
+		// TODO make this automatic afterward
+		int snapshotID = 1;
+		// snapshotID = Integer.parseInt(args[2]);
 		System.out.println("Starting snapshot initiation");
-		 Bank.InitBranch.Branch randomBranchInit = getRandomBranch();
-		 Bank.InitSnapshot bInitSnapshot = Bank.InitSnapshot.newBuilder().setSnapshotId(snapshotID).build();
-//			byte[] byteArrayInitSnapshot = Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
-			System.out.println("Initiating snapshot ID :" + snapshotID + " transfering to IP: "
-					+ randomBranchInit.getIp() + " Port:" + randomBranchInit.getPort());
-			Socket socket = new Socket(randomBranchInit.getIp(), randomBranchInit.getPort());
-			
-			
-			Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().writeDelimitedTo(socket.getOutputStream());
-			
-//			socket.getOutputStream().write(byteArrayInitSnapshot, 0, byteArrayInitSnapshot.length);
-			socket.getInputStream().close();
+		Bank.InitBranch.Branch randomBranchInit = getRandomBranch();
+		Bank.InitSnapshot bInitSnapshot = Bank.InitSnapshot.newBuilder().setSnapshotId(snapshotID).build();
+		// byte[] byteArrayInitSnapshot =
+		// Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build().toByteArray();
+		System.out.println("Initiating snapshot ID :" + snapshotID + " transfering to IP: " + randomBranchInit.getIp()
+				+ " Port:" + randomBranchInit.getPort());
+		Socket socket = new Socket(randomBranchInit.getIp(), randomBranchInit.getPort());
+		Bank.BranchMessage.newBuilder().setInitSnapshot(bInitSnapshot).build()
+				.writeDelimitedTo(socket.getOutputStream());
+		// socket.getOutputStream().write(byteArrayInitSnapshot, 0,
+		// byteArrayInitSnapshot.length);
+		socket.getInputStream().close();
+		socket.close();
+		// send the retrival msg
+		/*
+		 * RetrieveSnapshot the controller sends retrieveSnapshot messages to all
+		 * branches to collect snapshots. This mes- sage will contain the snapshot_id
+		 * that uniquely identifies a snapshot. A receiving branch should its recorded
+		 * local and channel states and return them to the caller (i.e., the controller)
+		 * by sending a returnSnap- shot message (next).a
+		 */
+		for (Bank.InitBranch.Branch branch : branchesList) {
+			System.out.println("Sending retrival msg to IP: " + branch.getIp() + " Port:" + branch.getPort());
+			socket = new Socket(branch.getIp(), branch.getPort());
+			Bank.RetrieveSnapshot bRetrive = Bank.RetrieveSnapshot.newBuilder().setSnapshotId(snapshotID).build();
+			Bank.BranchMessage branchMessage = Bank.BranchMessage.newBuilder().setRetrieveSnapshot(bRetrive).build();
+			branchMessage.writeDelimitedTo(socket.getOutputStream());
 			socket.close();
+		}
 	}
 
 	public static Bank.InitBranch.Branch getRandomBranch() {

@@ -31,13 +31,13 @@ public class branch {
 	private List<Integer> incomingChannelState = new ArrayList<Integer>();
 	private ConcurrentHashMap<Integer, LocalStateSnapshot> snapshots = new ConcurrentHashMap<Integer, LocalStateSnapshot>();
 	private ConcurrentHashMap<Integer, String> snapshotsMap = new ConcurrentHashMap<Integer, String>();
-	public ConcurrentHashMap<String, incommingChannelData> incomingChannel = new ConcurrentHashMap<String, incommingChannelData>();
+	public ConcurrentHashMap<String, incommingChannelData> incommingChannel = new ConcurrentHashMap<String, incommingChannelData>();
 	public int current_port;
 	public String current_ipAddress;
 	public String current_branchName;
 	public int numberOfMarkersReceived = 0;
 	public int numberOfMarkersSent = 0;
-    private final ReentrantLock marker_transfer_lock = new ReentrantLock();
+	private final ReentrantLock marker_transfer_lock = new ReentrantLock();
 
 	public branch(String branchName, String ipAddress, int port) {
 		this.current_branchName = branchName;
@@ -55,7 +55,6 @@ public class branch {
 			if (!branch.getName().equals(current_branchName))
 				initIncomingChannels(current_branchName, branch);
 		}
-		System.out.println("Current Balance is : " + bm.getInitBranch().getBalance());
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -69,53 +68,50 @@ public class branch {
 		class transferClass extends TimerTask {
 			@Override
 			public void run() {
-				
 				marker_transfer_lock.lock();
 				{
-//					Instant now = Instant.now();
-//					System.out.print(now+" ");
-				int transferingMoney = 0;
-				Random rand = new Random();
-				// TODO change this percentage
-				 int randomPercentage = rand.nextInt((5 - 1) + 1) + 1;
-//				int randomPercentage = 10;
-				if (balance > 0)
-					transferingMoney = balance * randomPercentage / 100;
-				else {
-					transferingMoney = -1;
-					canTransfer = false;
-				}
-				try {
-					if (transferingMoney != -1) {
-						// System.out.println("Sent Money :" + transferingMoney);
-						syncedBalanceUpdate(-transferingMoney);
-						Bank.InitBranch.Branch randomBranch = getRandomBranch();
-						Bank.Transfer bt = Bank.Transfer.newBuilder().setMoney(transferingMoney).build();
-						Bank.BranchMessage.newBuilder().setTransfer(bt).build();
-						Socket socket = new Socket(randomBranch.getIp(), randomBranch.getPort());
-						Bank.BranchMessage.newBuilder().setTransfer(bt).build()
-								.writeDelimitedTo(socket.getOutputStream());
-						socket.getOutputStream().write(current_branchName.getBytes());
-						System.out.println(
-								current_branchName + " >>>[-" + transferingMoney + "]>>> " + randomBranch.getName());
-						socket.getOutputStream().close();
-						socket.close();
-						if (!canTransfer) {
-							timer.cancel();
-						} else {
-							// TODO timer.schedule(new transferClass(), (rand.nextInt(5) * 1000));
-							timer.schedule(new transferClass(), (4 * 1000));
-						}
+					// Instant now = Instant.now();
+					// System.out.print(now+" ");
+					int transferingMoney = 0;
+					Random rand = new Random();
+					// TODO change this percentage
+					int randomPercentage = rand.nextInt((5 - 1) + 1) + 1;
+					// int randomPercentage = 10;
+					if (balance > 0)
+						transferingMoney = balance * randomPercentage / 100;
+					else {
+						transferingMoney = -1;
+						canTransfer = false;
 					}
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.err.println("Can not transfer money");
+					try {
+						if (transferingMoney != -1) {
+							// System.out.println("Sent Money :" + transferingMoney);
+							syncedBalanceUpdate(-transferingMoney);
+							Bank.InitBranch.Branch randomBranch = getRandomBranch();
+							Bank.Transfer bt = Bank.Transfer.newBuilder().setMoney(transferingMoney).build();
+							Bank.BranchMessage.newBuilder().setTransfer(bt).build();
+							Socket socket = new Socket(randomBranch.getIp(), randomBranch.getPort());
+							Bank.BranchMessage.newBuilder().setTransfer(bt).build()
+									.writeDelimitedTo(socket.getOutputStream());
+							socket.getOutputStream().write(current_branchName.getBytes());
+							System.out.println(current_branchName + " >>>[-" + transferingMoney + "]>>> "
+									+ randomBranch.getName());
+							socket.getOutputStream().close();
+							socket.close();
+							if (!canTransfer) {
+								timer.cancel();
+							} else {
+								timer.schedule(new transferClass(), (rand.nextInt(5) * 1000));
+								// timer.schedule(new transferClass(), (4 * 1000));
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						System.err.println("Can not transfer money");
+					}
 				}
-			}
 				marker_transfer_lock.unlock();
 			}
-			
-			
 		}
 		;
 		new transferClass().run();
@@ -132,7 +128,7 @@ public class branch {
 
 	public synchronized void syncedBalanceUpdate(int money) {
 		balance = balance + money;
-		System.out.println("Current balance : " + balance);
+		// System.out.println("Current balance : " + balance);
 	}
 
 	private synchronized void setMarkersReceived(int value) {
@@ -153,7 +149,6 @@ public class branch {
 
 	private void initSnapshot(int snapshot_id) throws UnknownHostException, IOException, InterruptedException {
 		marker_transfer_lock.lock();
-
 		incomingChannelState.clear();
 		LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
 		localSnapshot.setSnapshot_id(snapshot_id);
@@ -166,13 +161,12 @@ public class branch {
 		for (Bank.InitBranch.Branch branch : branchesList) {
 			// start the incoming traffic recording On mm inititator
 			if ((!branch.getName().equals(current_branchName))) {
-				this.incomingChannel.get(branch.getName()).setRecordingStarted(true);
+				this.incommingChannel.get(branch.getName()).setRecordingStarted(true);
 				System.out.println("@Recording started C " + branch.getName() + "--->" + current_branchName);
 			}
 		}
 		for (Bank.InitBranch.Branch branch : branchesList) {
-			// TODO possible to have different ip same port
-			if (branch.getPort() != current_port) {
+			if (!branch.getName().equals(current_branchName)) {
 				Thread.sleep(4000);
 				Bank.Marker bMarker = Bank.Marker.newBuilder().setSnapshotId(snapshot_id).build();
 				System.out.print(this.current_branchName + "------ " + snapshot_id + " -------> :" + branch.getName());
@@ -190,23 +184,20 @@ public class branch {
 
 	private void initIncomingChannels(String current_branchName2, Bank.InitBranch.Branch branch)
 			throws InterruptedException {
-		 System.out.println("initIncommingChannel from" + branch.getName() + " To " +
-		 current_branchName2);
+		System.out.println("initIncommingChannel from" + branch.getName() + " To " + current_branchName2);
 		Thread.sleep(2000);
 		incommingChannelData incommingChannel = new incommingChannelData();
-				//
+		//
 		incommingChannel.setIncomingChannelFrom(branch.getName());
 		incommingChannel.setIncomingChannelTO(current_branchName2);
 		incommingChannel.setRecordingStarted(false);
 		incommingChannel.setIncommingChannelData_Amount(0);
 		incommingChannel.setIncommingChannelData_snapshot_id(0);
 		//
-		this.incomingChannel.put(branch.getName(), incommingChannel);
+		this.incommingChannel.put(branch.getName(), incommingChannel);
 	}
 
 	public static void main(String[] args) throws IOException, InterruptedException {
-		
-		
 		if (args.length < 2) {
 			System.err.println("Wrong input....<branchname><Port>");
 			System.exit(0);
@@ -228,8 +219,6 @@ public class branch {
 					BufferedReader bufferReaderMarker = new BufferedReader(
 							new InputStreamReader(clientSocket.getInputStream()));
 					String moneySender = bufferReaderMarker.readLine();
-					// System.out.println("Received Money :" + bm.getTransfer().getMoney() + " From
-					// :" + moneySender);
 					System.out.println(
 							br.current_branchName + " <<<[+" + bm.getTransfer().getMoney() + "]<<< " + moneySender);
 					br.receiveMoney(bm.getTransfer().getMoney(), moneySender);
@@ -258,16 +247,15 @@ public class branch {
 		// let the incoming channel know about money.
 		// TODO MUST : add check for snapshot id.
 		try {
-			if (!incomingChannel.isEmpty())
+			if (!incommingChannel.isEmpty())
 				// System.out.println("moneySender " + moneySender);
-				if (incomingChannel.get(moneySender).isRecordingStarted()) {
-					int oldAmount = incomingChannel.get(moneySender).getIncommingChannelData_Amount();
-					System.out.println(" Incomming Channels Amount old " + oldAmount + " now :" + money + " total :"
-							+ (oldAmount + money));
-					
-					incomingChannel.get(moneySender).setIncommingChannelData_Amount(money + oldAmount);
-					incomingChannel.get(moneySender).setIncomingChannelFrom(moneySender);
-					incomingChannel.get(moneySender).setIncomingChannelTO(current_branchName);
+				if (incommingChannel.get(moneySender).isRecordingStarted() ) {
+					int oldAmount = incommingChannel.get(moneySender).getIncommingChannelData_Amount();
+					System.out.println(" Incomming Channels " + moneySender + ":" + current_branchName + " Amount old "
+							+ oldAmount + " now :" + money + " total :" + (oldAmount + money));
+					incommingChannel.get(moneySender).setIncommingChannelData_Amount(money + oldAmount);
+					incommingChannel.get(moneySender).setIncomingChannelFrom(moneySender);
+					incommingChannel.get(moneySender).setIncomingChannelTO(current_branchName);
 				}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -293,7 +281,6 @@ public class branch {
 			 */
 			LocalStateSnapshot localSnapshot = new LocalStateSnapshot();
 			incommingChannelData incommingChannel = new incommingChannelData();
-			
 			localSnapshot.setSnapshot_id(snapshotId);
 			localSnapshot.setBalance(this.balance);
 			localSnapshot.setMessages(this.incomingChannelState);
@@ -303,12 +290,13 @@ public class branch {
 			incommingChannel.setIncomingChannelTO(current_branchName);
 			// * records the state of the incoming channel from the sender to itself as
 			// empty,
+			System.out.println("Stopping recording of " + markerSenderBranchName + " --->" + current_branchName);
 			incommingChannel.setRecordingStarted(false);
 			//
 			// * immediately starts recording on other incoming channels
 			for (Bank.InitBranch.Branch branch : branchesList) {
 				if ((branch.getPort() != current_port) && (!branch.getName().equals(markerSenderBranchName))) {
-					this.incomingChannel.get(branch.getName()).setRecordingStarted(true);
+					this.incommingChannel.get(branch.getName()).setRecordingStarted(true);
 					System.out.println("@Recording started C " + branch.getName() + "--->" + current_branchName);
 				}
 			}
@@ -317,7 +305,7 @@ public class branch {
 			//
 			// TODO needed lock here with respect to receiveMoney method
 			this.snapshots.put(snapshotId, localSnapshot);
-			this.incomingChannel.put(markerSenderBranchName, incommingChannel);
+			this.incommingChannel.put(markerSenderBranchName, incommingChannel);
 			for (Bank.InitBranch.Branch branch : branchesList) {
 				// TODO possible to have different ip same port
 				if (branch.getPort() != current_port) {
@@ -343,19 +331,21 @@ public class branch {
 		 * sequence of money transfers that arrived between when it recorded its local
 		 * state and when it received the Marker.
 		 */
+		{
+			// this is the mm initiators 2nd marker.
+			this.incommingChannel.get(markerSenderBranchName).setRecordingStarted(false);
+			System.out.println("Stopping recording of " + markerSenderBranchName + " --->" + current_branchName);
+		}
 		if (numberOfMarkersReceived == branchesList.size() - 1) {
 			System.out.println("========================================================");
 			System.out.println("================Snapshot Done here======================");
-			System.out.println("Balance :" + snapshots.get(1).getBalance());
-
+			System.out.println("Balance :" + snapshots.get(snapshotId).getBalance());
 			System.out.println("Incoming channel");
-		
-			incomingChannel.forEach((key, value) -> System.out.println(key + ":" + value.getIncommingChannelData_Amount()));
+			incommingChannel.forEach((key, value) -> System.out
+					.println(key + ":" + value.getIncommingChannelData_Amount() + ":" + value.isRecordingStarted));
 			System.out.println("This balance" + balance);
 			System.out.println("========================================================");
 		}
-		
-		
 		marker_transfer_lock.unlock();
 	}
 }
