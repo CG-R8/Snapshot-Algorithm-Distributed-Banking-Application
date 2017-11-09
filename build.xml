@@ -51,7 +51,7 @@
 	</target>
 	<target name="Controller">
 		<java classname="Controller" failonerror="true" fork="yes">
-			<arg line="3000 branches.txt"/>
+			<arg line="9000 branches.txt"/>
 			<classpath refid="DS_GoogleProtoc_snapshot.classpath"/>
 		</java>
 	</target>
