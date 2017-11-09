@@ -6,10 +6,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Timer;
@@ -17,7 +14,6 @@ import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 public class branch {
 	private static ServerSocket serverSocket = null;
@@ -31,8 +27,8 @@ public class branch {
 	public int current_port;
 	public String current_ipAddress;
 	public String current_branchName;
-	public int numberOfMarkersReceived = 0;
-	public int numberOfMarkersSent = 0;
+	public int markersReceived = 0;
+	public int MarkersSent = 0;
 	private final ReentrantLock marker_transfer_lock = new ReentrantLock();
 
 	public branch(String branchName, String ipAddress, int port) {
@@ -119,19 +115,19 @@ public class branch {
 	}
 
 	private synchronized void setMarkersReceived(int value) {
-		this.numberOfMarkersReceived = value;
+		this.markersReceived = value;
 	}
 
 	private synchronized void setMarkersSent(int value) {
-		this.numberOfMarkersSent = value;
+		this.MarkersSent = value;
 	}
 
 	private synchronized void incrementMarkersReceived() {
-		this.numberOfMarkersReceived++;
+		this.markersReceived++;
 	}
 
 	private synchronized void incrementMarkersSent() {
-		this.numberOfMarkersSent++;
+		this.MarkersSent++;
 	}
 
 	private void initSnapshot(int snapshot_id) throws UnknownHostException, IOException, InterruptedException {
@@ -166,7 +162,6 @@ public class branch {
 				Socket socket = new Socket(branch.getIp(), branch.getPort());
 				Bank.BranchMessage.newBuilder().setMarker(bMarker).build().writeDelimitedTo(socket.getOutputStream());
 				socket.getOutputStream().write(current_branchName.getBytes());
-				// TODO setMarkersSent(this.numberOfMarkersSent++);
 				incrementMarkersSent();
 				socket.getOutputStream().close();
 				socket.close();
@@ -177,8 +172,6 @@ public class branch {
 
 	private void initIncomingChannels(String current_branchName2, Bank.InitBranch.Branch branch)
 			throws InterruptedException {
-		// System.out.println("initIncommingChannel from" + branch.getName() + " To " +
-		// current_branchName2);
 		incommingChannelData incommingChannel = new incommingChannelData();
 		//
 		incommingChannel.setIncomingChannelFrom(branch.getName());
@@ -355,7 +348,7 @@ public class branch {
 			this.snapshots.get(snapshotId).incrementReceivedMarker_snapshot();
 			System.out.println("Stopping recording of " + markerSenderBranchName + " --->" + current_branchName);
 		}
-		if (numberOfMarkersReceived == branchesList.size() - 1) {
+		if (markersReceived == branchesList.size() - 1) {
 			print_StoreResult(snapshotId);
 		}
 		marker_transfer_lock.unlock();

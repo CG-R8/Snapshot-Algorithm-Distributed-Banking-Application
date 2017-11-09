@@ -2,10 +2,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 public class Controller {
 	private static List<Bank.InitBranch.Branch> branchesList;
@@ -30,16 +28,29 @@ public class Controller {
 			Bank.InitBranch.Builder ib = Bank.InitBranch.newBuilder();
 			while ((line = fp.readLine()) != null && line.trim().length() > 0) {
 				isFileEmpty = false;
-				String[] sarr = line.split(" ");
-				String bBranchName = sarr[0];
+				String[] tokens = line.split(" ");
+				String bBranchName = tokens[0];
 				inputBranch.add(bBranchName);
-				String bIpAddress = sarr[1];
-				int bPort = Integer.parseInt(sarr[2]);
+				String bIpAddress = tokens[1];
+				int bPort = Integer.parseInt(tokens[2]);
 				Bank.InitBranch.Branch.Builder ibb;
 				ibb = Bank.InitBranch.Branch.newBuilder().setIp(bIpAddress).setName(bBranchName).setPort(bPort);
 				ib.addAllBranches(ibb.build());
 			}
-			ib.setBalance(Integer.parseInt(args[0]) / ib.getAllBranchesCount());
+			try {
+				double devidedBalance =0;
+				devidedBalance = Double.parseDouble(args[0]) / ib.getAllBranchesCount();
+				if((devidedBalance%1 )== 0)
+				ib.setBalance(Integer.parseInt(args[0]) / ib.getAllBranchesCount());
+				else
+				{
+					System.err.println("Wrong init balanec is set....Exiting process....\n");
+					System.exit(0);
+				}
+			} catch (Exception e) {
+				System.err.println("Wrong init balanec is set....Exiting process....\n");
+				System.exit(0);
+			}
 			Bank.InitBranch bm = ib.build();
 			Bank.BranchMessage branchMessage = Bank.BranchMessage.newBuilder().setInitBranch(bm).build();
 			branchesList = ib.getAllBranchesList();
@@ -57,7 +68,8 @@ public class Controller {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		for (int i = 1; i < 4; i++) {
+		// ---------------------------------------------------------------------------
+		for (int i = 1; i < 40; i++) {
 			initSnapshot(i);
 			Thread.sleep(5000);
 			retrieveSnapshotValues(i);
@@ -77,15 +89,15 @@ public class Controller {
 			branchMessage.writeDelimitedTo(socket.getOutputStream());
 			Bank.BranchMessage bm = Bank.BranchMessage.parseDelimitedFrom(socket.getInputStream());
 			socket.close();
-//			if (bm == null) {
-//				Thread.sleep(1000);
-//				System.out.println("Got null value");
-//				index_of_branchList--;
-//			} else 
-				if (bm.hasReturnSnapshot()) {
+			// if (bm == null) {
+			// Thread.sleep(1000);
+			// System.out.println("Got null value");
+			// index_of_branchList--;
+			// } else
+			if (bm.hasReturnSnapshot()) {
 				System.out.print(
 						"\n" + branch.getName() + " : " + bm.getReturnSnapshot().getLocalSnapshot().getBalance());
-//				System.out.println(bm.getReturnSnapshot().getLocalSnapshot().getChannelStateList());
+				// System.out.println(bm.getReturnSnapshot().getLocalSnapshot().getChannelStateList());
 				temp_total = temp_total + bm.getReturnSnapshot().getLocalSnapshot().getBalance();
 				List<Integer> channelLocalList = bm.getReturnSnapshot().getLocalSnapshot().getChannelStateList();
 				for (int index = 0; index < channelLocalList.size(); index++) {
